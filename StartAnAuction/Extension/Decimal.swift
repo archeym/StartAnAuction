@@ -27,13 +27,39 @@ extension Double {
 
 
 enum DecimalParser {
-    static func parse(_ text: String) -> Decimal? {
-        let nf = NumberFormatter()
-        nf.numberStyle = .decimal
-        nf.locale = .current
-        if let n = nf.number(from: text) { return n.decimalValue }
-        let canonical = text.replacingOccurrences(of: ",", with: ".")
-        return Decimal(string: canonical)
+    static func parse(_ text: String, locale: Locale = .current) -> Decimal? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let dec = NumberFormatter()
+        dec.numberStyle = .decimal
+        dec.locale = locale
+        if let n = dec.number(from: trimmed) { return n.decimalValue }
+
+        let cur = NumberFormatter()
+        cur.numberStyle = .currency
+        cur.locale = locale
+        if let n = cur.number(from: trimmed) { return n.decimalValue }
+
+        let currencySymbol = cur.currencySymbol ?? ""
+        let grouping = dec.groupingSeparator ?? ","
+        let decimalSep = dec.decimalSeparator ?? "."
+
+        var cleaned = trimmed
+            .replacingOccurrences(of: currencySymbol, with: "")
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: grouping, with: "")
+
+        if decimalSep != "." {
+            cleaned = cleaned.replacingOccurrences(of: decimalSep, with: ".")
+        }
+
+        // Keep digits, one dot, and optional leading minus
+        //In auctions you probably don’t need minus, but this is safe
+        let allowed = Set("0123456789.-")
+        cleaned = String(cleaned.filter { allowed.contains($0) })
+
+        return Decimal(string: cleaned)
     }
 }
 

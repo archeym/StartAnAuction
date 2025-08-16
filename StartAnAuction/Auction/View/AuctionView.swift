@@ -12,14 +12,11 @@ struct AuctionView: View {
     @ObservedObject var viewModel: AuctionViewModel
     
     var body: some View {
-        VStack(spacing: 16) {
-            
+        VStack(spacing: 25) {
             Group {
-                
                 HStack {
-                    Text("Time remaining")
+                    Text("Time remaining:")
                     Spacer()
-                    
                     ///Smooth mm:ss.SS countdown updated by TimelineView
                     if viewModel.isRunning {
                         TimelineView(.periodic(from: .now, by: 1.0 / 60.0)) { context in
@@ -45,25 +42,50 @@ struct AuctionView: View {
             }
             
             Group {
-                HStack {
-                    Text("Your bid:")
-                    Spacer()
-                    TextField("Amount", text: $viewModel.bidInput)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .frame(maxWidth: 160)
-                }
-                Button(action: viewModel.placeUserBid) {
-                    Text("Place Bid").frame(maxWidth: .infinity)
+                
+                bidInputView
+                
+                Button {
+                    viewModel.placeUserBid()
+                } label: {
+                    Label("Place Bid", systemImage: "hand.rays.fill")
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 42)
+                        .font(.headline)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!viewModel.isRunning || viewModel.bidInput.isEmpty)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .disabled(!viewModel.isRunning || !viewModel.isAmountHigher)
             }
             
             Spacer()
         }
         .padding()
+        .padding(.horizontal, UIDevice.isIPad ? 50: 10)
         .navigationBarTitle("Auction is ON!", displayMode: .automatic)
+        .onDisappear {
+            viewModel.bidInput = "0.00"
+        }
+    }
+    
+    private var bidInputView: some View {
+        ZStack(alignment: .leading) {
+            HStack {
+                Text("Your bid:")
+            }.modifier(ForTextFieldViewModifier())
+
+            DecimalCurrencyTextField(
+                placeholder: "0.00",
+                textAlignment: .right,
+                keyboardType: .decimalPad,
+                shouldOpenKeyboard: false,
+                text: $viewModel.bidInput,
+                onEditingChanged: { _ in }
+            )
+            .id(viewModel.bidInputResetID)
+            .modifier(DecimalStyleTextFieldViewModifier())
+        }
+        .padding(.top, 2)
+        .modifier(TextFieldViewModifier())
     }
 }
