@@ -47,11 +47,12 @@ struct NewEventView: View {
                 }
             }
         }
+        .alertWith($viewModel.alertItem)
         .disabled(!networkMonitor.isConnected)
         .onChange(of: networkMonitor.isConnected, perform: { newValue in
             if !newValue {
                 viewModel.alertItem = AlertItem(title: "The device is currently offline!",
-                                                 message: "Make sure the iPad is connected to the network.",
+                                                 message: "Make sure the device is connected to the network.",
                                                  button1Title: "OK",
                                                  action1: {})
             }

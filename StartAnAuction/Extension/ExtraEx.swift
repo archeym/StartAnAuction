@@ -16,3 +16,12 @@ extension UIDevice {
         UIDevice.current.userInterfaceIdiom == .phone
     }
 }
+
+
+var screenSize: CGSize {
+#if os(iOS)
+    return UIScreen.main.bounds.size
+#else
+    return NSScreen.main?.frame.size ?? .zero
+#endif
+}
