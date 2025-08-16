@@ -75,12 +75,14 @@ struct AuctionView: View {
             }.modifier(ForTextFieldViewModifier())
 
             DecimalCurrencyTextField(
-                placeholder: "0.00",
+                placeholder: "0,00",
                 textAlignment: .right,
                 keyboardType: .decimalPad,
                 shouldOpenKeyboard: false,
                 text: $viewModel.bidInput,
-                onEditingChanged: { _ in }
+                onEditingChanged: { _ in },
+                locale: .current,
+                maxFractionDigits: 2
             )
             .id(viewModel.bidInputResetID)
             .modifier(DecimalStyleTextFieldViewModifier())

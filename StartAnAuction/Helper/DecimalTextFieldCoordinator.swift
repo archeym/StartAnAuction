@@ -8,16 +8,18 @@
 import SwiftUI
 import UIKit
 
-class DecimalTextFieldCoordinator: NSObject, UITextFieldDelegate {
+final class DecimalTextFieldCoordinator: NSObject, UITextFieldDelegate {
     @Binding var text: String
     var textField: UITextField?
-
     var onEditingChanged: (Bool) -> Void
-    private var rawDigits: String = ""
+    private let locale: Locale
+    private let maxFractionDigits: Int
 
-    init(text: Binding<String>, onEditingChanged: @escaping (Bool) -> Void) {
+    init(text: Binding<String>, onEditingChanged: @escaping (Bool) -> Void, locale: Locale, maxFractionDigits: Int) {
         _text = text
         self.onEditingChanged = onEditingChanged
+        self.locale = locale
+        self.maxFractionDigits = maxFractionDigits
     }
 
     @objc func doneButtonTapped() {
@@ -27,54 +29,53 @@ class DecimalTextFieldCoordinator: NSObject, UITextFieldDelegate {
     func textFieldDidBeginEditing(_ textField: UITextField) {
         let toolbar = UIToolbar()
         toolbar.sizeToFit()
-
         let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneButtonTapped))
         toolbar.items = [UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil), doneButton]
-
         textField.inputAccessoryView = toolbar
         self.textField = textField
-
         onEditingChanged(true)
+
+        if text.trimmingCharacters(in: .whitespacesAndNewlines) == "0.00" || text == "0,00" {
+            text = ""
+            textField.text = ""
+        }
     }
 
     func textFieldDidEndEditing(_ textField: UITextField) {
         onEditingChanged(false)
+        if text.isEmpty {
+            text = "0.00"
+            textField.text = "0.00"
+        }
     }
 
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        // Allow only numeric input or backspace
-        if string.rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) != nil && string != "" {
-            return false
+    func textField(_ textField: UITextField,
+                   shouldChangeCharactersIn range: NSRange,
+                   replacementString string: String) -> Bool {
+        let sep = locale.decimalSeparator ?? "."
+        let incoming = (string == "." || string == ",") ? sep : string
+        guard let r = Range(range, in: textField.text ?? "") else { return false }
+        var proposed = (textField.text ?? "").replacingCharacters(in: r, with: incoming)
+
+        // only digits and one separator
+        let allowedChars = Set("0123456789\(sep)")
+        proposed = String(proposed.filter { allowedChars.contains($0) })
+        if proposed.components(separatedBy: sep).count > 2 { return false }
+
+        // enforce max fraction digits
+        if let srange = proposed.range(of: sep) {
+            let fractional = proposed[srange.upperBound...]
+            if fractional.count > maxFractionDigits { return false }
         }
 
-        if string == "" {
-            if !rawDigits.isEmpty {
-                rawDigits.removeLast()
-            }
-        } else {
-            rawDigits.append(string)
-        }
+        text = proposed
+        textField.text = proposed
 
-        let doubleValue = (Double(rawDigits) ?? 0) / 100.0
-
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencySymbol = "€"
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        formatter.locale = Locale(identifier: "en_IE") // Change as needed
-
-        let formatted = formatter.string(from: NSNumber(value: doubleValue)) ?? "€0.00"
-
-        text = formatted
-        textField.text = formatted
-
-        // Keep cursor at end
-        let endPosition = textField.endOfDocument
+        // cursor stays at end
+        let end = textField.endOfDocument
         DispatchQueue.main.async {
-            textField.selectedTextRange = textField.textRange(from: endPosition, to: endPosition)
+            textField.selectedTextRange = textField.textRange(from: end, to: end)
         }
-
         return false
     }
 }
@@ -85,11 +86,19 @@ struct DecimalCurrencyTextField: UIViewRepresentable {
     var keyboardType: UIKeyboardType = .numberPad
     var shouldOpenKeyboard: Bool = false
     @Binding var text: String
-
     var onEditingChanged: (Bool) -> Void
 
+    // 🔑 add these to pass locale + fraction limit
+    var locale: Locale = .current
+    var maxFractionDigits: Int = 2
+
     func makeCoordinator() -> DecimalTextFieldCoordinator {
-        DecimalTextFieldCoordinator(text: $text, onEditingChanged: onEditingChanged)
+        DecimalTextFieldCoordinator(
+            text: $text,
+            onEditingChanged: onEditingChanged,
+            locale: locale,
+            maxFractionDigits: maxFractionDigits
+        )
     }
 
     func makeUIView(context: Context) -> UITextField {
@@ -99,13 +108,11 @@ struct DecimalCurrencyTextField: UIViewRepresentable {
         textField.keyboardType = keyboardType
         textField.textAlignment = textAlignment
         textField.text = text
-
         if shouldOpenKeyboard {
             DispatchQueue.main.async {
                 textField.becomeFirstResponder()
             }
         }
-
         return textField
     }
 
@@ -117,7 +124,7 @@ struct DecimalCurrencyTextField: UIViewRepresentable {
 }
 
 
-class CharacterTextFieldCoordinator: NSObject, UITextFieldDelegate {
+final class CharacterTextFieldCoordinator: NSObject, UITextFieldDelegate {
     
     @Binding var text: String
     var textField: UITextField?
