@@ -30,7 +30,7 @@ struct NewEventView: View {
                         }
                 }
             } else {
-                // iOS 15 fallback: NavigationView with hidden NavigationLink(isActive:)
+                // iOS 15: NavigationView with hidden NavigationLink(isActive:)
                 NavigationView {
                     content
                         .navigationBarTitle("New Event", displayMode: .automatic)
@@ -38,7 +38,9 @@ struct NewEventView: View {
                             NavigationLink(
                                 destination: AuctionView(viewModel: viewModel),
                                 isActive: $navigateToAuctionView
-                            ) { EmptyView() }
+                            ) {
+                                EmptyView()
+                            }
                             .hidden()
                         )
                 }
@@ -49,28 +51,43 @@ struct NewEventView: View {
     private var content: some View {
         ScrollView {
             VStack(spacing: 16) {
-                Group {
-                    HStack { Text("Please Enter Your Name"); Spacer() }
-                    TextField("Name...", text: $viewModel.userName)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .submitLabel(.done)
-                }
-
+                nameFieldView
+                
                 Button {
                     viewModel.startAuction()
                     navigateToAuctionView = true
                 } label: {
                     Label("Start New Auction", systemImage: "star.circle.fill")
                         .frame(maxWidth: .infinity)
+                        .frame(height: 42)
+                        .font(.headline)
                 }
                 .buttonStyle(.borderedProminent)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .disabled(viewModel.userName.isEmpty)
-
+                
                 Spacer(minLength: 24)
             }
             .padding()
         }
         .modifier(ScrollDismissModifier())
         .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 8) }
+    }
+    
+    private var nameFieldView: some View {
+        ZStack(alignment: .leading) {
+            HStack(spacing: 2){
+                Text("Please Enter Your Name")
+                Text("*").foregroundColor(.red)
+            }.modifier(ForTextFieldViewModifier())
+
+            CharacterTextField(placeholder: "",
+                               textAlignmentCenter: .right,
+                               keyboardType: .default,
+                               text: $viewModel.userName,
+                               onEditingChanged: { _ in })
+                .modifier(ForNamePhoneTextFieldViewModifier())
+                .offset(y: 5)
+        }.modifier(TextFieldViewModifier())
     }
 }

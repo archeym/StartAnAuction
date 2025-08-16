@@ -16,11 +16,12 @@ final class AuctionViewModel: ObservableObject {
     }
 
     @Published var userName: String = ""
-    @Published var bidInput: String = ""
+    @Published var bidInput: String = "0.00"
+    @Published var bidInputResetID = UUID()
     @Published var errorText: String? = nil
     
     @Published var currentPriceText: String = "—"
-    @Published var currentWinnerText: String = "No winner yet"
+    @Published var currentWinner: String? = nil
     @Published var remainingText: String = "00:00"
     @Published var isRunning: Bool = false
     @Published var endDate: Date?
@@ -38,6 +39,14 @@ final class AuctionViewModel: ObservableObject {
         self.bidFeed = bidFeed
         self.config = config
         Task { await refreshFromManager() }
+    }
+    
+    var currentWinnerText: String {
+        if isRunning {
+            return currentWinner.map { "Current winner: \($0)" } ?? "No winner yet"
+        } else {
+            return currentWinner.map { "Winner is: \($0) !!!" } ?? "No winner"
+        }
     }
     
     var canSubmit: Bool {
@@ -104,31 +113,26 @@ final class AuctionViewModel: ObservableObject {
     }
 
     func placeUserBid() {
-        errorText = nil
-        guard isRunning else {
-            errorText = "Start a new auction first."
-            return
-        }
+        guard isRunning else { return }
+        guard let amount = DecimalParser.parse(bidInput) else { return }
         let name = userName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else {
-            errorText = "Enter your name."
-            return
-        }
-        guard let amount = DecimalParser.parse(bidInput) else {
-            errorText = "Enter a valid amount."
-            return
-        }
-        guard amount > cachedPrice else {
-            errorText = "Your bid must be higher than the current price."
-            return
-        }
+        guard !name.isEmpty else { return }
 
         Task {
             let accepted = await manager.placeBid(
-                Bid(bidderName: name, amount: amount.rounded(scale: 2), timestamp: Date())
+                Bid(bidderName: name,
+                    amount: amount.rounded(scale: 2),
+                    timestamp: Date())
             )
-            if accepted { bidInput = "" } else {
-                errorText = "Bid rejected (probably too low or auction ended)."
+            if accepted {
+                bidInput = "0.00"
+                bidInputResetID = UUID()
+
+                DispatchQueue.main.async {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
+                
+                (bidFeed as? SimulatedBidFeed)?.notifyAcceptedBid(cooldown: 0)
             }
             await refreshFromManager()
         }
@@ -137,14 +141,12 @@ final class AuctionViewModel: ObservableObject {
     private func refreshFromManager() async {
         let snap = await manager.snapshot()
 
-        // existing updates...
-        currentPriceText = CurrencyFormatter.shared.string(from: snap.currentPrice ?? 0)
-        currentWinnerText = snap.currentWinner.map { "Current winner: \($0)" } ?? "No winner yet"
+        currentPriceText = CurrencyFormatter.shared.string(from: (snap.currentPrice ?? 0))
+        cachedPrice = snap.currentPrice ?? 0
 
-        // publish endDate to the view
+        currentWinner = snap.currentWinner
         endDate = snap.endDate
 
-        // keep legacy string too if you still show it elsewhere
         if let end = snap.endDate {
             let ms = max(0, Int(end.timeIntervalSince(Date()) * 1000))
             remainingText = TimeFormatter.mmssSS(milliseconds: ms)
@@ -152,7 +154,8 @@ final class AuctionViewModel: ObservableObject {
             remainingText = TimeFormatter.mmssSS(milliseconds: 0)
         }
 
-        isRunning = snap.isActive ?? false && (snap.endDate ?? Date()) > Date()
+        let active = snap.isActive ?? false
+        isRunning = active && (snap.endDate ?? Date()) > Date()
     }
     
     func computeRemainingMilliseconds(now: Date, endDate: Date?) -> Int {
