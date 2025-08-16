@@ -1,7 +1,6 @@
 name: StartAnAuction
 
-on:
-  pull_request: [main, dev]
+on: [ pull_request ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
