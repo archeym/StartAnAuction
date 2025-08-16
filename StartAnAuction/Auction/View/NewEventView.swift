@@ -5,11 +5,12 @@
 //  Created by Arkadijs Makarenko on 15/08/2025.
 //
 import SwiftUI
+import NetworkMonitor
 
 struct NewEventView: View {
     
     @State private var navigateToAuctionView: Bool = false
-
+    @EnvironmentObject var networkMonitor: NetworkMonitor
     // Shared ViewModel between screens
     @StateObject private var viewModel = AuctionViewModel(
         manager: AuctionManager(),
@@ -46,6 +47,15 @@ struct NewEventView: View {
                 }
             }
         }
+        .disabled(!networkMonitor.isConnected)
+        .onChange(of: networkMonitor.isConnected, perform: { newValue in
+            if !newValue {
+                viewModel.alertItem = AlertItem(title: "The device is currently offline!",
+                                                 message: "Make sure the iPad is connected to the network.",
+                                                 button1Title: "OK",
+                                                 action1: {})
+            }
+        })
     }
     
     private var content: some View {
@@ -69,6 +79,7 @@ struct NewEventView: View {
                 Spacer(minLength: 24)
             }
             .padding()
+            .padding(.horizontal, UIDevice.isIPad ? 50: 10)
         }
         .modifier(ScrollDismissModifier())
         .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 8) }

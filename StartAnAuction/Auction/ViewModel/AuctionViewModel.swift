@@ -25,7 +25,8 @@ final class AuctionViewModel: ObservableObject {
     @Published var remainingText: String = "00:00"
     @Published var isRunning: Bool = false
     @Published var endDate: Date?
-
+    @Published var alertItem: AlertItem?
+    
     private let manager: AuctionManager
     private let bidFeed: BidFeed
     private let config: Config

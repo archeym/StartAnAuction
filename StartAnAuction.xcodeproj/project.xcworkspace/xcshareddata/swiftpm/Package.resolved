@@ -1,0 +1,15 @@
+{
+  "originHash" : "95707c315252096bab3635288edc81317530b9f5f7d2950bea11fa86fd6990a7",
+  "pins" : [
+    {
+      "identity" : "networkmonitor-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/archeym/NetworkMonitor-iOS.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "d50dd1f22525e50a79e3c3db0a64c3a627e8c297"
+      }
+    }
+  ],
+  "version" : 3
+}

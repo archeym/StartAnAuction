@@ -61,6 +61,7 @@ struct AuctionView: View {
             Spacer()
         }
         .padding()
+        .padding(.horizontal, UIDevice.isIPad ? 50: 10)
         .navigationBarTitle("Auction is ON!", displayMode: .automatic)
         .onDisappear {
             viewModel.bidInput = "0.00"
