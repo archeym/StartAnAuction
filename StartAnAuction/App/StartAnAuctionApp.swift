@@ -11,7 +11,7 @@ import SwiftUI
 struct StartAnAuctionApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            NewEventView()
         }
     }
 }
