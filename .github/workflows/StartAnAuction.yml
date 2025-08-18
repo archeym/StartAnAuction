@@ -37,25 +37,25 @@ jobs:
           xcodebuild \
             -resolvePackageDependencies \
             -scheme "StartAnAuction" \
-            -workspace "StartAnAuction.xcworkspace"
+            -workspace "StartAnAuction.xcodeproj"
 
       - name: Build StartAnAuction
         run: |
           xcodebuild \
             -scheme "StartAnAuction" \
-            -workspace "StartAnAuction.xcworkspace" \
+            -workspace "StartAnAuction.xcodeproj" \
             -configuration Debug \
             -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=18.2' \
             build
 
       - name: List Schemes
-        run: xcodebuild -list -workspace "StartAnAuction.xcworkspace"
+        run: xcodebuild -list -workspace "StartAnAuction.xcodeproj"
 
       - name: Run Unit Tests
         run: |
           xcodebuild \
             -scheme "StartAnAuction" \
-            -workspace "StartAnAuction.xcworkspace" \
+            -workspace "StartAnAuction.xcodeproj" \
             -configuration Debug \
             -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=18.2' \
             test
