@@ -49,9 +49,9 @@ jobs:
             
       - name: Run Unit Tests
         run: |
-          xcodebuild \
-            -scheme "StartAnAuction" \        # Same scheme as used in build step
-            -project "StartAnAuction.xcodeproj" \  # Or replace with -workspace if using CocoaPods/SwiftPM workspace
-            -configuration Debug \           # Usually Debug for tests
-            -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=18.2' \ # Test target device
-            test                        # 'test' builds + runs tests
+           xcodebuild \
+             -scheme "StartAnAuction" \
+             -workspace "StartAnAuction.xcworkspace" \
+             -configuration Debug \
+             -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=18.2' \
+             test
