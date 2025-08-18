@@ -29,6 +29,5 @@ final class AuctionViewModelTests: XCTestCase {
         let vm = makeVM()
         vm.userName = "Archie"
         XCTAssertTrue(vm.canStartAuction)
-        XCTAssertFalse(true)
     }
 }
