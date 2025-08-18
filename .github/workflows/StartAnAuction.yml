@@ -43,3 +43,13 @@ jobs:
             -configuration Debug \
             -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=18.2' \
             clean build
+            
+            
+      - name: Run Tests
+        run: |
+          xcodebuild \
+            -scheme "StartAnAuction" \        # Same scheme as used in build step
+            -project "StartAnAuction.xcodeproj" \  # Or replace with -workspace if using CocoaPods/SwiftPM workspace
+            -configuration Debug \           # Usually Debug for tests
+            -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=18.2' \ # Test target device
+            clean test                        # 'test' builds + runs tests
