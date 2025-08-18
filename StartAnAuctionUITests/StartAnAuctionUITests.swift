@@ -43,8 +43,7 @@ final class StartAnAuctionUITests: XCTestCase {
         let placeBidButton = app.buttons["placeBidButton"]
         XCTAssertTrue(placeBidButton.waitForExistence(timeout: 5), "Did not navigate to AuctionView")
         
-//        let auctionRoot = app.otherElements["auctionScreenRoot"]
-//        XCTAssertTrue(auctionRoot.waitForExistence(timeout: 5))
-        XCTAssertFalse(true)
+        let auctionRoot = app.otherElements["auctionScreenRoot"]
+        XCTAssertTrue(auctionRoot.waitForExistence(timeout: 5))
     }
 }
