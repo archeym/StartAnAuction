@@ -168,45 +168,46 @@ final class CharacterTextFieldCoordinator: NSObject, UITextFieldDelegate {
 }
 
 struct CharacterTextField: UIViewRepresentable {
-    
     var placeholder: String
     var textAlignmentCenter: NSTextAlignment
     var keyboardType: UIKeyboardType
-    var shouldOpenKeyboard: Bool = false
     @Binding var text: String
-    
     var onEditingChanged: (Bool) -> Void
-    
-    func makeCoordinator() -> CharacterTextFieldCoordinator {
-        return CharacterTextFieldCoordinator(text: $text, onEditingChanged: onEditingChanged)
-    }
-    
+    var accessibilityIdentifier: String? = nil
+
     func makeUIView(context: Context) -> UITextField {
-        
-        let textField = UITextField()
-        textField.delegate = context.coordinator
-        textField.placeholder = placeholder
-        textField.keyboardType = keyboardType
-        textField.textAlignment = textAlignmentCenter
-        // Disable auto features
-        textField.autocapitalizationType = .none
-        textField.autocorrectionType = .no
-        textField.spellCheckingType = .no
-        textField.smartDashesType = .no
-        textField.smartQuotesType = .no
-        textField.smartInsertDeleteType = .no
-        
-        if shouldOpenKeyboard {
-            DispatchQueue.main.async {
-                textField.becomeFirstResponder()
-            }
-        }
-        
-        return textField
+        let tf = UITextField()
+        tf.placeholder = placeholder
+        tf.textAlignment = textAlignmentCenter
+        tf.keyboardType = keyboardType
+        tf.text = text
+        tf.delegate = context.coordinator
+        tf.accessibilityIdentifier = accessibilityIdentifier
+
+        return tf
     }
-    
+
     func updateUIView(_ uiView: UITextField, context: Context) {
-        uiView.text = text
+        if uiView.text != text { uiView.text = text }
+        // keep identifier updated (defensive)
+        uiView.accessibilityIdentifier = accessibilityIdentifier
     }
-    
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text, onEditingChanged: onEditingChanged) }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        @Binding var text: String
+        let onEditingChanged: (Bool) -> Void
+        init(text: Binding<String>, onEditingChanged: @escaping (Bool) -> Void) {
+            _text = text; self.onEditingChanged = onEditingChanged
+        }
+        func textFieldDidBeginEditing(_ textField: UITextField) { onEditingChanged(true) }
+        func textFieldDidEndEditing(_ textField: UITextField) { onEditingChanged(false) }
+        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+            guard let r = Range(range, in: textField.text ?? "") else { return false }
+            let new = (textField.text ?? "").replacingCharacters(in: r, with: string)
+            text = new
+            return true
+        }
+    }
 }

@@ -164,5 +164,8 @@ final class AuctionViewModel: ObservableObject {
         return max(0, Int(end.timeIntervalSince(now) * 1000))
     }
     
+    var canStartAuction: Bool {
+        !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 }
 

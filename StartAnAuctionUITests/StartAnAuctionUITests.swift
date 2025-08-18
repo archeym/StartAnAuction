@@ -8,34 +8,42 @@
 import XCTest
 
 final class StartAnAuctionUITests: XCTestCase {
-
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
+    
+    override func setUp() {
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
     }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
-    @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    
+    func test_NonEmptyName_Navigates() {
         let app = XCUIApplication()
+        app.launchArguments += ["UITESTS"]
         app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-    }
-
-    @MainActor
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
+        // 1) Enter name
+        let nameField = app.textFields["userNameField"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5), "Name field not found")
+        nameField.tap()
+        nameField.typeText("Archie")
+        
+        // Dismiss keyboard just in case it covers the start button
+        if app.keyboards.firstMatch.exists {
+            // Try tapping return if available; otherwise tap outside
+            if app.keyboards.buttons["return"].exists {
+                app.keyboards.buttons["return"].tap()
+            } else {
+                app.otherElements.firstMatch.tap()
+            }
         }
+        
+        // 2) Tap Start
+        let startButton = app.buttons["startAuctionButton"]
+        XCTAssertTrue(startButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(startButton.isEnabled)
+        startButton.tap()
+        
+        // 3) Assert on AuctionView by waiting for the "Place Bid" button
+        let placeBidButton = app.buttons["placeBidButton"]
+        XCTAssertTrue(placeBidButton.waitForExistence(timeout: 5), "Did not navigate to AuctionView")
+        
+        let auctionRoot = app.otherElements["auctionScreenRoot"]
+        XCTAssertTrue(auctionRoot.waitForExistence(timeout: 5))
     }
 }

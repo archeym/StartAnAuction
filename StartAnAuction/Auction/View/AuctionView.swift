@@ -56,13 +56,17 @@ struct AuctionView: View {
                 .buttonStyle(.borderedProminent)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .disabled(!viewModel.isRunning || !viewModel.isAmountHigher)
+                .accessibilityIdentifier("placeBidButton") 
             }
             
             Spacer()
+            Text("").accessibilityIdentifier("auctionScreenRoot").hidden()
         }
         .padding()
         .padding(.horizontal, UIDevice.isIPad ? 50: 10)
         .navigationBarTitle("Auction is ON!", displayMode: .automatic)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("auctionScreenRoot")
         .onDisappear {
             viewModel.bidInput = "0.00"
         }
