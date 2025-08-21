@@ -4,20 +4,29 @@
 //
 //  Created by Arkadijs Makarenko on 15/08/2025.
 //
+
 import SwiftUI
 import NetworkMonitor
 
 struct NewEventView: View {
 
-    @State private var navigateToAuctionView: Bool = false
     @EnvironmentObject var networkMonitor: NetworkMonitor
+    @StateObject private var viewModel: AuctionViewModel
+    @State private var navigateToAuctionView = false
 
-    // Shared ViewModel between screens
-    @StateObject private var viewModel = AuctionViewModel(
-        manager: AuctionManager(),
-        bidFeed: SimulatedBidFeed(),
-        config: .init(startingPrice: 0, durationSeconds: 15)
-    )
+    private static let defaultService: any MerchantServiceProtocol = APIManager(config: .prod)
+
+    init(service: any MerchantServiceProtocol = NewEventView.defaultService) {
+        let fetcher = MerchantFetcher(service: service)
+        _viewModel = StateObject(
+            wrappedValue: AuctionViewModel(
+                manager: AuctionManager(),
+                bidFeed: SimulatedBidFeed(),
+                config: .init(startingPrice: 0, durationSeconds: 15),
+                merchantFetcher: fetcher
+            )
+        )
+    }
 
     var body: some View {
         Group {
@@ -46,6 +55,9 @@ struct NewEventView: View {
                 }
             }
         }
+        .task { // Load merchants on appear using Swift concurrency
+            await viewModel.loadMerchantsOnAppear()
+        }
         .alertWith($viewModel.alertItem)
         .disabled(!(networkMonitor.isConnected || ProcessInfo.processInfo.arguments.contains("UITESTS")))
         .onChange(of: networkMonitor.isConnected) { newValue in
@@ -64,6 +76,25 @@ struct NewEventView: View {
         ScrollView {
             VStack(spacing: 16) {
                 nameFieldView
+                if viewModel.isLoading {
+                    ProgressView("Loading merchants…")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else if let error = viewModel.errorMessage {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else if !viewModel.merchants.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Merchants")
+                            .font(.headline)
+                        ForEach(viewModel.merchants) { merchant in
+                            Text(merchant.name ?? "")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .accessibilityIdentifier("merchant_\(String(describing: merchant.id))")
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 Button {
                     viewModel.startAuction()
@@ -76,7 +107,6 @@ struct NewEventView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .disabled(viewModel.userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityIdentifier("startAuctionButton")
 
                 Spacer(minLength: 24)
@@ -86,6 +116,9 @@ struct NewEventView: View {
         }
         .modifier(ScrollDismissModifier())
         .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 8) }
+        .refreshable { // Pull-to-refresh
+            await viewModel.refreshMerchants()
+        }
     }
 
     private var nameFieldView: some View {

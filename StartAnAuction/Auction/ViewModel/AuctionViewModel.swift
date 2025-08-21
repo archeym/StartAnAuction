@@ -6,42 +6,81 @@
 //
 
 import SwiftUI
+import Combine
+
+protocol AuctionManagerLogic {
+    func startAuction(withName name: String, startingPrice: Decimal, durationSeconds: Int) async throws
+    func placeBid(withName name: String, bid: Decimal) async throws
+}
 
 @MainActor
 final class AuctionViewModel: ObservableObject {
-    
+
     struct Config {
         let startingPrice: Decimal
         let durationSeconds: Int
     }
 
+    // UI State
     @Published var userName: String = ""
     @Published var bidInput: String = "0.00"
     @Published var bidInputResetID = UUID()
     @Published var errorText: String? = nil
-    
+
     @Published var currentPriceText: String = "—"
     @Published var currentWinner: String? = nil
     @Published var remainingText: String = "00:00"
     @Published var isRunning: Bool = false
     @Published var endDate: Date?
     @Published var alertItem: AlertItem?
-    
+
+    @Published var merchants: [Merchant] = []
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String?
     private let manager: AuctionManager
     private let bidFeed: BidFeed
     private let config: Config
+    private let merchantFetcher: MerchantProtocol
+
     private(set) var cachedPrice: Decimal = 0
-    
     private var feedTask: Task<Void, Never>?
     private var clockTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
 
-    init(manager: AuctionManager, bidFeed: BidFeed, config: Config) {
+    init(manager: AuctionManager,
+         bidFeed: BidFeed,
+         config: Config,
+         merchantFetcher: MerchantProtocol) {
         self.manager = manager
         self.bidFeed = bidFeed
         self.config = config
+        self.merchantFetcher = merchantFetcher
+
+        // Subscribe to merchant pipeline
+        merchantFetcher.merchantsPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] merchants in
+                self?.isLoading = false
+                self?.merchants = merchants
+            }
+            .store(in: &cancellables)
+
+        merchantFetcher.errorsPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] error in
+                self?.isLoading = false
+                switch error {
+                case .invalidURL: self?.errorMessage = "Invalid URL"
+                case .requestFailed(let desc): self?.errorMessage = "Request failed: \(desc)"
+                case .decodingFailed(let desc): self?.errorMessage = "Failed to decode: \(desc)"
+                }
+            }
+            .store(in: &cancellables)
+
         Task { await refreshFromManager() }
     }
-    
+
+    // Derived
     var currentWinnerText: String {
         if isRunning {
             return currentWinner.map { "Current winner: \($0)" } ?? "No winner yet"
@@ -49,7 +88,7 @@ final class AuctionViewModel: ObservableObject {
             return currentWinner.map { "Winner is: \($0) !!!" } ?? "No winner"
         }
     }
-    
+
     var canSubmit: Bool {
         isRunning && !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         DecimalParser.parse(bidInput) != nil
@@ -60,6 +99,11 @@ final class AuctionViewModel: ObservableObject {
         return amt > cachedPrice
     }
 
+    var canStartAuction: Bool {
+        !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    // Public API
     func startAuction() {
         feedTask?.cancel(); feedTask = nil
         clockTask?.cancel(); clockTask = nil
@@ -73,6 +117,7 @@ final class AuctionViewModel: ObservableObject {
             await refreshFromManager()
             isRunning = true
 
+            // Clock
             clockTask = Task { [weak self] in
                 guard let self = self else { return }
                 while await self.manager.canAcceptBids() {
@@ -83,9 +128,8 @@ final class AuctionViewModel: ObservableObject {
                 self.isRunning = false
                 self.bidFeed.stop()
             }
-            
-            
 
+            // Feed
             let snapshot = await manager.snapshot()
             guard let auctionId = snapshot.auctionId else { return }
 
@@ -132,19 +176,45 @@ final class AuctionViewModel: ObservableObject {
                 DispatchQueue.main.async {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 }
-                
                 (bidFeed as? SimulatedBidFeed)?.notifyAcceptedBid(cooldown: 0)
             }
             await refreshFromManager()
         }
     }
 
+    // Fetch triggers
+    func loadMerchants() {
+        isLoading = true
+        errorMessage = nil
+        merchantFetcher.fetchMerchants()
+    }
+
+    func loadMerchantsOnAppear() async {
+        isLoading = true
+        errorMessage = nil
+        merchantFetcher.fetchMerchants()
+
+        for await merchants in $merchants.values {
+            if !merchants.isEmpty || errorMessage != nil {
+                break
+            }
+        }
+        isLoading = false
+    }
+
+    func refreshMerchants() async {
+        isLoading = true
+        errorMessage = nil
+        merchantFetcher.fetchMerchants()
+        _ = await $merchants.values.first(where: { _ in true })
+        isLoading = false
+    }
+
+    // Helpers
     private func refreshFromManager() async {
         let snap = await manager.snapshot()
-
         currentPriceText = CurrencyFormatter.shared.string(from: (snap.currentPrice ?? 0))
         cachedPrice = snap.currentPrice ?? 0
-
         currentWinner = snap.currentWinner
         endDate = snap.endDate
 
@@ -158,14 +228,9 @@ final class AuctionViewModel: ObservableObject {
         let active = snap.isActive ?? false
         isRunning = active && (snap.endDate ?? Date()) > Date()
     }
-    
+
     func computeRemainingMilliseconds(now: Date, endDate: Date?) -> Int {
         guard let end = endDate else { return 0 }
         return max(0, Int(end.timeIntervalSince(now) * 1000))
     }
-    
-    var canStartAuction: Bool {
-        !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
 }
-
